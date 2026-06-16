@@ -89,14 +89,14 @@ class RankingEdgeCaseTest {
      * C) UniqueConstraint 때문에 두 번째 실행이 실패한다
      * D) Cleanup이 먼저 돌아서 항상 같은 결과가 나온다
      *
-     * 정답: B.
+     * 정답: B (였다 — 지금은 A).
      *
      * SQL 표준에서 ORDER BY에 tie-breaking 컬럼이 없으면 동점 행의 순서는 미정의다.
      * MySQL InnoDB에서 동점일 때 primary key 순서로 나올 "가능성이 높지만" 보장은 안 된다.
      * 테이블 재구성(OPTIMIZE TABLE), 버퍼 풀 상태, 병렬 스캔 여부에 따라 달라질 수 있다.
      *
-     * 실무에서는 ORDER BY score DESC, product_id ASC 같은 보조 정렬을 넣어서
-     * 동점 시에도 결정적 순서를 보장한다. 지금 구현에는 이게 없다.
+     * 현재 SQL은 ORDER BY score DESC, product_id ASC 로 보조 정렬을 갖는다.
+     * 동점이면 productId가 작은 쪽이 항상 먼저 나오므로 재실행에도 순서가 결정적이다.
      */
     @Nested
     inner class `동점_상품의_rank_안정성` {

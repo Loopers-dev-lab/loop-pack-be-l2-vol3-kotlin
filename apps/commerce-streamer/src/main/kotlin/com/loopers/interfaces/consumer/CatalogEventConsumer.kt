@@ -68,6 +68,7 @@ class CatalogEventConsumer(
                 "PRODUCT_VIEWED" -> {
                     productMetricsJpaRepository.upsertMetrics(
                         productId = productId,
+                        bucketDate = eventDate,
                         viewCount = 1,
                         likeCount = 0,
                         orderCount = 0,
@@ -78,6 +79,7 @@ class CatalogEventConsumer(
                 "PRODUCT_LIKED" -> {
                     productMetricsJpaRepository.upsertMetrics(
                         productId = productId,
+                        bucketDate = eventDate,
                         viewCount = 0,
                         likeCount = 1,
                         orderCount = 0,
@@ -88,6 +90,7 @@ class CatalogEventConsumer(
                 "PRODUCT_UNLIKED" -> {
                     productMetricsJpaRepository.upsertMetrics(
                         productId = productId,
+                        bucketDate = eventDate,
                         viewCount = 0,
                         likeCount = -1,
                         orderCount = 0,

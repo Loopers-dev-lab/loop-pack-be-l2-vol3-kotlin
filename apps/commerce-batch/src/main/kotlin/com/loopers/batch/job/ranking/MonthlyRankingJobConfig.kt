@@ -1,10 +1,5 @@
 package com.loopers.batch.job.ranking
 
-import com.loopers.batch.job.ranking.RankingBatchConstants.CHUNK_SIZE
-import com.loopers.batch.job.ranking.RankingBatchConstants.DATE_FORMATTER
-import com.loopers.batch.job.ranking.RankingBatchConstants.PRODUCT_METRICS_RANKING_SQL
-import com.loopers.batch.job.ranking.step.CleanupRankingTasklet
-import com.loopers.batch.job.ranking.step.RankingWriter
 import com.loopers.batch.listener.ChunkListener
 import com.loopers.batch.listener.JobListener
 import com.loopers.batch.listener.StepMonitorListener
@@ -14,12 +9,9 @@ import org.springframework.batch.core.Job
 import org.springframework.batch.core.Step
 import org.springframework.batch.core.configuration.annotation.JobScope
 import org.springframework.batch.core.configuration.annotation.StepScope
-import org.springframework.batch.core.job.builder.JobBuilder
-import org.springframework.batch.core.launch.support.RunIdIncrementer
 import org.springframework.batch.core.repository.JobRepository
-import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.item.database.JdbcCursorItemReader
-import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
@@ -32,93 +24,77 @@ import javax.sql.DataSource
 @ConditionalOnProperty(name = ["spring.batch.job.name"], havingValue = MonthlyRankingJobConfig.JOB_NAME)
 @Configuration
 class MonthlyRankingJobConfig(
-    private val jobRepository: JobRepository,
-    private val transactionManager: PlatformTransactionManager,
-    private val jobListener: JobListener,
-    private val stepMonitorListener: StepMonitorListener,
-    private val chunkListener: ChunkListener,
+    jobRepository: JobRepository,
+    transactionManager: PlatformTransactionManager,
+    jobListener: JobListener,
+    stepMonitorListener: StepMonitorListener,
+    chunkListener: ChunkListener,
     private val monthlyJpaRepository: ProductRankMonthlyJpaRepository,
+) : AbstractRankingJobConfig<ProductRankMonthlyEntity>(
+    jobRepository,
+    transactionManager,
+    jobListener,
+    stepMonitorListener,
+    chunkListener,
 ) {
     companion object {
         const val JOB_NAME = "monthlyRankingJob"
-        private const val STEP_CLEANUP = "cleanupMonthlyRankingStep"
-        private const val STEP_AGGREGATE = "aggregateMonthlyRankingStep"
+        const val STEP_CLEANUP = "cleanupMonthlyRankingStep"
+        const val STEP_AGGREGATE = "aggregateMonthlyRankingStep"
+        const val READER_NAME = "monthlyProductMetricsReader"
+        const val MV_TABLE = "mv_product_rank_monthly"
+    }
+
+    override val jobName: String = JOB_NAME
+    override val stepCleanupName: String = STEP_CLEANUP
+    override val stepAggregateName: String = STEP_AGGREGATE
+    override val readerName: String = READER_NAME
+    override val mvTableName: String = MV_TABLE
+
+    override fun startOfPeriod(date: LocalDate): LocalDate = date.with(TemporalAdjusters.firstDayOfMonth())
+    override fun endOfPeriod(start: LocalDate): LocalDate = start.plusMonths(1)
+
+    override fun deleteByRankingDate(date: LocalDate) {
+        monthlyJpaRepository.deleteByRankingDate(date)
+    }
+
+    override fun saveAll(entities: List<ProductRankMonthlyEntity>) {
+        monthlyJpaRepository.saveAll(entities)
+    }
+
+    override fun newEntity(row: ProductMetricsRow, rank: Int, date: LocalDate): ProductRankMonthlyEntity {
+        return ProductRankMonthlyEntity(
+            id = null,
+            productId = row.productId,
+            score = row.score,
+            ranking = rank,
+            rankingDate = date,
+        )
     }
 
     @Bean(JOB_NAME)
-    fun monthlyRankingJob(): Job {
-        return JobBuilder(JOB_NAME, jobRepository)
-            .incrementer(RunIdIncrementer())
-            .start(cleanupMonthlyRankingStep(null))
-            .next(aggregateMonthlyRankingStep(null, null))
-            .listener(jobListener)
-            .build()
-    }
+    fun monthlyRankingJob(
+        @Qualifier(STEP_CLEANUP) cleanupStep: Step,
+        @Qualifier(STEP_AGGREGATE) aggregateStep: Step,
+    ): Job = buildJob(cleanupStep, aggregateStep)
 
     @JobScope
     @Bean(STEP_CLEANUP)
     fun cleanupMonthlyRankingStep(
         @Value("#{jobParameters['requestDate']}") requestDate: String?,
-    ): Step {
-        val date = LocalDate.parse(requireNotNull(requestDate), DATE_FORMATTER)
-        val startOfMonth = date.with(TemporalAdjusters.firstDayOfMonth())
-        return StepBuilder(STEP_CLEANUP, jobRepository)
-            .tasklet(
-                CleanupRankingTasklet(startOfMonth, monthlyJpaRepository::deleteByRankingDate, "mv_product_rank_monthly"),
-                transactionManager,
-            )
-            .listener(stepMonitorListener)
-            .build()
-    }
+    ): Step = buildCleanupStep(requestDate)
 
     @JobScope
     @Bean(STEP_AGGREGATE)
     fun aggregateMonthlyRankingStep(
         @Value("#{jobParameters['requestDate']}") requestDate: String?,
-        dataSource: DataSource?,
-    ): Step {
-        val date = LocalDate.parse(requireNotNull(requestDate), DATE_FORMATTER)
-        val startOfMonth = date.with(TemporalAdjusters.firstDayOfMonth())
-        val writer = monthlyRankingWriter(startOfMonth)
-        return StepBuilder(STEP_AGGREGATE, jobRepository)
-            .chunk<ProductMetricsRow, ProductMetricsRow>(CHUNK_SIZE, transactionManager)
-            .reader(monthlyProductMetricsReader(requireNotNull(dataSource)))
-            .writer(writer)
-            .listener(writer)
-            .listener(stepMonitorListener)
-            .listener(chunkListener)
-            .build()
-    }
+        @Qualifier(READER_NAME) reader: JdbcCursorItemReader<ProductMetricsRow>,
+    ): Step = buildAggregateStep(requestDate, reader)
 
     @StepScope
-    @Bean("monthlyProductMetricsReader")
-    fun monthlyProductMetricsReader(dataSource: DataSource): JdbcCursorItemReader<ProductMetricsRow> {
-        return JdbcCursorItemReaderBuilder<ProductMetricsRow>()
-            .name("monthlyProductMetricsReader")
-            .dataSource(dataSource)
-            .sql(PRODUCT_METRICS_RANKING_SQL)
-            .rowMapper { rs, _ ->
-                ProductMetricsRow(
-                    productId = rs.getLong("product_id"),
-                    score = rs.getDouble("score"),
-                )
-            }
-            .build()
-    }
-
-    private fun monthlyRankingWriter(rankingDate: LocalDate): RankingWriter<ProductRankMonthlyEntity> {
-        return RankingWriter(
-            rankingDate = rankingDate,
-            entityFactory = { row, rank, date ->
-                ProductRankMonthlyEntity(
-                    id = null,
-                    productId = row.productId,
-                    score = row.score,
-                    ranking = rank,
-                    rankingDate = date,
-                )
-            },
-            saveAction = { entities -> monthlyJpaRepository.saveAll(entities) },
-        )
-    }
+    @Bean(READER_NAME)
+    fun monthlyProductMetricsReader(
+        dataSource: DataSource,
+        @Value("#{jobParameters['requestDate']}") requestDate: String,
+    ): JdbcCursorItemReader<ProductMetricsRow> = buildReader(dataSource, requestDate)
 }
