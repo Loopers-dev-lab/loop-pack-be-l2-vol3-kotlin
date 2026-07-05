@@ -24,7 +24,11 @@ class RankingColdStartScheduler(
      */
     @Scheduled(cron = "0 50 23 * * *")
     fun carryOverScores() {
-        val today = LocalDate.now()
+        carryOverScores(LocalDate.now())
+    }
+
+    // 날짜를 주입받는 오버로드: 테스트가 자정 경계에 걸려도 키가 어긋나지 않는다.
+    fun carryOverScores(today: LocalDate) {
         val tomorrow = today.plusDays(1)
         val sourceKey = rankingScoreUpdater.buildKey(today)
         val targetKey = rankingScoreUpdater.buildKey(tomorrow)

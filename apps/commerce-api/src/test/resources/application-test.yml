@@ -1,0 +1,8 @@
+# 테스트 전역에서 대기열 스케줄러(100ms 폴링)를 끈다.
+# RedisTestContainersConfig의 Redis 컨테이너는 JVM 전체가 공유하는 static 싱글톤이라,
+# 캐시된 다른 Spring 컨텍스트의 스케줄러가 살아 있으면 대기열 통합 테스트의
+# queue:order:waiting 키를 백그라운드에서 드레인해 순번 검증이 flaky해진다.
+# 스케줄러 로직 자체는 수동 생성 인스턴스로 검증한다 (QueueRedisIntegrationTest 참고).
+queue:
+  scheduler:
+    enabled: false

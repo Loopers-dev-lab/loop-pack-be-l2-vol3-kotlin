@@ -1,12 +1,17 @@
 package com.loopers.application.queue
 
 import com.loopers.domain.queue.EntryTokenRepository
+import com.loopers.domain.queue.QueueThroughput
 import com.loopers.domain.queue.WaitingQueueRepository
 import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.util.UUID
 
+// 테스트 프로파일에서는 백그라운드 폴링이 공유 Redis의 대기열을 오염시키므로 끈다.
+// (apps/commerce-api/src/test/resources/application-test.yml)
+@ConditionalOnProperty(name = ["queue.scheduler.enabled"], havingValue = "true", matchIfMissing = true)
 @Component
 class QueueEntryScheduler(
     private val waitingQueueRepository: WaitingQueueRepository,
@@ -15,22 +20,15 @@ class QueueEntryScheduler(
     private val log = LoggerFactory.getLogger(javaClass)
 
     companion object {
-        /**
-         * 배치 크기 산정 근거:
-         * - DB 커넥션 풀: 50
-         * - 주문 1건 평균 처리 시간: 200ms
-         * - 이론적 최대 TPS: 50 / 0.2 = 250 TPS
-         * - 안전 마진 70%: 175 TPS
-         * - 스케줄러 주기: 100ms
-         * - 배치 크기: 175 * 0.1 ≈ 18명
-         */
-        const val BATCH_SIZE = 18L
         const val TOKEN_TTL_SECONDS = 300L
     }
 
-    @Scheduled(fixedDelay = 100)
+    // fixedDelay가 아니라 fixedRate인 이유: 설계 처리량 140 TPS는 100ms "주기"를 전제로
+    // 산정했다 (QueueThroughput). fixedDelay는 실행 시간이 주기에 가산되어 처리량이
+    // 항상 설계값 밑으로 떨어진다.
+    @Scheduled(fixedRate = QueueThroughput.SCHEDULER_INTERVAL_MS)
     fun processQueue() {
-        val userIds = waitingQueueRepository.dequeueTopN(BATCH_SIZE)
+        val userIds = waitingQueueRepository.dequeueTopN(QueueThroughput.BATCH_SIZE)
         if (userIds.isEmpty()) return
 
         for (userId in userIds) {

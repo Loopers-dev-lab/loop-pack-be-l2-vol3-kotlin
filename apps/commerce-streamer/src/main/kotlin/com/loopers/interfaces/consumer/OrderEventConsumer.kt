@@ -79,6 +79,7 @@ class OrderEventConsumer(
                         val salesAmount = (item["salesAmount"] as Number).toLong()
                         productMetricsJpaRepository.upsertMetrics(
                             productId = productId,
+                            bucketDate = eventDate,
                             viewCount = 0,
                             likeCount = 0,
                             orderCount = quantity.toLong(),

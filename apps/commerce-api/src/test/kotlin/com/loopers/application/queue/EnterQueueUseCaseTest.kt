@@ -26,6 +26,7 @@ class EnterQueueUseCaseTest {
         assertThat(result.status).isEqualTo(QueueEntryResult.QueueStatus.QUEUED)
         assertThat(result.position).isEqualTo(1)
         assertThat(result.estimatedWaitSeconds).isNotNull()
+        assertThat(result.totalWaiting).isEqualTo(1)
     }
 
     @Test
@@ -53,6 +54,15 @@ class EnterQueueUseCaseTest {
         val result = enterQueueUseCase.enter(2L)
 
         assertThat(result.position).isEqualTo(2)
+    }
+
+    @Test
+    fun `진입 결과에 전체 대기 인원이 포함되어야 한다`() {
+        enterQueueUseCase.enter(1L)
+        enterQueueUseCase.enter(2L)
+        val result = enterQueueUseCase.enter(3L)
+
+        assertThat(result.totalWaiting).isEqualTo(3)
     }
 
     companion object {

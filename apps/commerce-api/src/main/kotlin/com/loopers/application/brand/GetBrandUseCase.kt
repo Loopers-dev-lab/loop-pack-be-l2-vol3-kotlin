@@ -7,16 +7,18 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-@Transactional(readOnly = true)
 class GetBrandUseCase(
     private val brandRepository: BrandRepository,
 ) {
+
+    @Transactional
     fun getById(id: Long): BrandInfo {
         val brand = brandRepository.findById(id)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: $id")
         return BrandInfo.from(brand)
     }
 
+    @Transactional
     fun getActiveById(id: Long): BrandInfo {
         val brand = brandRepository.findById(id)
             ?: throw CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다: $id")
