@@ -1,5 +1,6 @@
 package com.loopers.application.queue
 
+import com.loopers.domain.queue.QueueThroughput
 import com.loopers.domain.queue.fixture.FakeEntryTokenRepository
 import com.loopers.domain.queue.fixture.FakeWaitingQueueRepository
 import org.assertj.core.api.Assertions.assertThat
@@ -42,12 +43,15 @@ class QueueEntrySchedulerTest {
 
     @Test
     fun `배치 크기보다 많은 유저가 있으면 배치 크기만큼만 처리해야 한다`() {
-        repeat(25) { i ->
-            waitingQueueRepository.enqueue(i.toLong() + 1, i.toDouble() + 1)
+        // BATCH_SIZE가 재산정으로 바뀌어도 "초과 인원" 시나리오가 유지되도록 상수에서 파생한다.
+        val overflow = 11L
+        val userCount = QueueThroughput.BATCH_SIZE + overflow
+        for (i in 1..userCount) {
+            waitingQueueRepository.enqueue(i, i.toDouble())
         }
 
         scheduler.processQueue()
 
-        assertThat(waitingQueueRepository.getQueueSize()).isEqualTo(25 - QueueEntryScheduler.BATCH_SIZE)
+        assertThat(waitingQueueRepository.getQueueSize()).isEqualTo(overflow)
     }
 }

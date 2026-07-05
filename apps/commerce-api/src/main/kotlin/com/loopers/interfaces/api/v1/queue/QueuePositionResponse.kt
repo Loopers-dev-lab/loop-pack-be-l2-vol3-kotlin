@@ -7,6 +7,7 @@ data class QueuePositionResponse(
     val position: Long?,
     val estimatedWaitSeconds: Long?,
     val token: String?,
+    val totalWaiting: Long?,
 ) {
     companion object {
         fun from(result: QueuePositionResult) = QueuePositionResponse(
@@ -14,6 +15,7 @@ data class QueuePositionResponse(
             position = result.position,
             estimatedWaitSeconds = result.estimatedWaitSeconds,
             token = result.token,
+            totalWaiting = result.totalWaiting,
         )
     }
 }
